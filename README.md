@@ -1,87 +1,34 @@
-# HR Employee Helpdesk
+# HR Helpdesk
 
-A deliberately small Python + Streamlit HR agent using MongoDB and OpenAI function calling.
+A terminal assistant for local HR testing. It supports natural-language employee questions through Gemini, with OpenAI as a fallback, and reads factual employee data directly from MongoDB.
 
-## What it does
+## First-version scope
 
-- Exact leave balance from `leaves`
-- Exact payslip from `payroll`
-- Policy answers from `policies`
-- Leave application into `leaveRequests`
-- Current date/time for relative dates
-- Privacy guardrail so the logged-in employee cannot retrieve another employee's payslip
+- Search employees by employee ID or name.
+- View all fields stored on employee records, including salary if present.
+- Update department, job title, work email, phone, manager employee ID, or salary.
+- Review the before and after values and type YES before each save.
+- Record every saved change in the employeeChangeLog collection.
+- View an employee's recent change history.
 
-## Project structure
+Only the listed profile fields can be updated; other fields are read-only. It does not add or delete employee records. Natural-language requests are interpreted by Gemini first and OpenAI if Gemini fails. The models receive the request text, not employee records returned by MongoDB. Keep sensitive details out of the request text; the direct menu options still work if both providers are unavailable.
 
-```text
-hr_employee_helpdesk/
-├── app.py              # Streamlit UI
-├── agent.py            # LLM + tool-calling loop
-├── tools.py            # HR tools / business rules
-├── db.py               # MongoDB connection + text index
-├── config.py           # .env loading
-├── seed_db.py          # Optional demo data
-├── WORKFLOW.md         # Architecture and step-by-step workflow
-├── requirements.txt
-├── .env.example
-└── .gitignore
-```
+## Run it
 
-## 1. Create/activate a virtual environment
+    python -m venv .venv
+    .\.venv\Scripts\Activate.ps1
+    pip install -r requirements.txt
 
-Windows PowerShell:
+Create .env from .env.example and configure MONGODB_URI and at least one AI key. Set OPENAI_API_KEY for the primary provider and GEMINI_API_KEY to enable fallback. MONGODB_DB_NAME defaults to hr_helpdesk; model names can be changed with OPENAI_MODEL and GEMINI_MODEL. Then run:
 
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-```
+    python terminal_agent.py
 
-## 2. Install packages
+The database must already contain an employees collection with empId values. The current profile shape uses name, department, designation, managerId, and joiningDate; this assistant also reads or writes workEmail and phone. Employee IDs are the stable record keys; enter either EMP102 or its numeric part, 102. Updating a manager requires an existing employee ID or the value none.
 
-```powershell
-pip install -r requirements.txt
-```
+The assistant creates employeeChangeLog if needed. Profile updates and their audit entries are written in one MongoDB transaction. The configured MongoDB deployment must support transactions.
 
-## 3. Add your existing `.env`
+When the program starts, choose 1 to ask a natural-language question, 2 to search, 3 to view a profile, 4 to update a profile field, or 5 to view change history. Direct lookup accepts EMP102 or 102.
 
-The app expects:
+## Access boundary
 
-```env
-OPENAI_API_KEY=...
-MONGODB_URI=...
-MONGODB_DB=hr_helpdesk
-OPENAI_MODEL=gpt-5.5
-```
-
-You can omit the last two because the code has defaults.
-
-## 4. Optional: seed the demo database
-
-Only run this if you want the sample employee/data shown in the assignment:
-
-```powershell
-python seed_db.py
-```
-
-It creates demo data for `EMP102` and a few policy documents.
-
-## 5. Run Streamlit
-
-```powershell
-streamlit run app.py
-```
-
-Then open the local URL Streamlit prints in the terminal.
-
-## Demo questions
-
-```text
-How many sick leaves do I have left? I am EMP102.
-What does the policy say about working from home?
-What was my March salary?
-I want three days of leave from 12 March for a family function.
-I have two casual leaves left - does the policy let me carry them to next year?
-What is my colleague's salary?
-```
-
-The last question should be refused.
+This is a local terminal demo and does not authenticate the operator. The operator name entered at startup is self-reported and used only as the audit actor. Natural-language request text is sent to OpenAI, then Gemini if needed; database results stay local. Do not use this version with real employee data.
